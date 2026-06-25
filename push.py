@@ -127,6 +127,9 @@ def push(content, method):
     """统一推送接口，支持 PushPlus、Telegram 和 WxPusher"""
     notifier = PushNotification()
 
+    if method in (None, ''):
+        logger.warning("未配置推送渠道，跳过推送。")
+        return False
     if method == "pushplus":
         token = PUSHPLUS_TOKEN
         return notifier.push_pushplus(content, token)

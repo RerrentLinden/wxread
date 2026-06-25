@@ -16,10 +16,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)-8s - 
 
 # 加密盐及其它默认值
 KEY = "3c5c8717f3daf09iop3423zafeqoi"
-COOKIE_DATA = {"rq": "%2Fweb%2Fbook%2Fread","ql": False}
 READ_URL = "https://weread.qq.com/web/book/read"
 RENEW_URL = "https://weread.qq.com/web/login/renewal"
 FIX_SYNCKEY_URL = "https://weread.qq.com/web/book/chapterInfos"
+COOKIE_DATA_VARIANTS = [
+    {"rq": "%2Fweb%2Fbook%2Fread", "ql": False},
+    {"rq": "%2Fweb%2Fbook%2Fread", "ql": True},
+    {"rq": "%2Fweb%2Fbook%2Fread"},
+]
 
 
 def encode_data(data):
@@ -43,11 +47,21 @@ def cal_hash(input_string):
 
 def get_wr_skey():
     """刷新cookie密钥"""
-    response = requests.post(RENEW_URL, headers=headers, cookies=cookies,
-                             data=json.dumps(COOKIE_DATA, separators=(',', ':')))
-    for cookie in response.headers.get('Set-Cookie', '').split(';'):
-        if "wr_skey" in cookie:
-            return cookie.split('=')[-1][:8]
+    for cookie_data in COOKIE_DATA_VARIANTS:
+        try:
+            response = requests.post(
+                RENEW_URL,
+                headers=headers,
+                cookies=cookies,
+                data=json.dumps(cookie_data, separators=(',', ':')),
+                timeout=10,
+            )
+        except requests.RequestException as exc:
+            logging.warning(f"refresh_cookie 请求失败，payload={cookie_data}，原因：{exc}")
+            continue
+
+        if 'wr_skey' in response.cookies:
+            return response.cookies['wr_skey'][:8]
     return None
 
 def fix_no_synckey():
@@ -59,7 +73,7 @@ def refresh_cookie():
     new_skey = get_wr_skey()
     if new_skey:
         cookies['wr_skey'] = new_skey
-        logging.info(f"✅ 密钥刷新成功，新密钥：{new_skey}")
+        logging.info(f"✅ 密钥刷新成功，新密钥：{new_skey[:2]}***")
         logging.info(f"🔄 重新本次阅读。")
     else:
         ERROR_CODE = "❌ 无法获取新密钥或者WXREAD_CURL_BASH配置有误，终止运行。"
