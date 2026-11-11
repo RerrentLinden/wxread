@@ -4,16 +4,14 @@ concurrency:
   group: ${{ github.workflow }} # 使用工作流名称作为并发组的key
   cancel-in-progress: true    # 取消任何正在进行的相同并发组的工作流
 
+# 定时任务已停用：日常阅读改由 VPS(Boil_HKT_HK) 上的 docker 容器执行，
+# 每天北京时间 08:07（见 docker-compose.yml 的 CRON_SCHEDULE=7 8 * * *）。
+# 两边同时开启会导致每天重复阅读 160 次，故此处只保留手动触发，
+# 需要补跑时用：gh workflow run deploy.yml -R RerrentLinden/wxread
 on:
-  schedule:
-    # 凌晨任务：北京时间每天 01:07（UTC 前一天 17:07），避开 GitHub Actions 整点高峰
-    #- cron: '7 17 * * *'
-    # 早间任务：北京时间每天 05:00（UTC 前一天 21:00）
-    #- cron: '0 21 * * *'
-    # 午间任务：北京时间每天 11:40（UTC 03:40）
-    #- cron: '40 3 * * *'
-    # 早上任务：北京时间每天 08:07（UTC 00:07），避开 GitHub Actions 整点高峰
-    - cron: '7 0 * * *'
+  # schedule:
+  #   # 北京时间每天 08:07（UTC 00:07）
+  #   - cron: '7 0 * * *'
   workflow_dispatch:  # 手动触发
 
 jobs:
