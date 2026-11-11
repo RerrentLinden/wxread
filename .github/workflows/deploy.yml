@@ -23,10 +23,16 @@ jobs:
 
     steps:
 
-    - name: Set DNS to Google's DNS
+    # 以前这里直接用 tee 覆盖 resolv.conf，把 runner 自带的解析器整个丢掉，
+    # 只剩 8.8.8.8/8.8.4.4。Google DNS 对 Azure/runner IP 段有速率限制，
+    # 一旦被限流就是全盘无法解析（见 run 42942838116：第 4/80 次时
+    # weread.qq.com 解析失败）。改为追加，保留 runner 自带解析器在前，
+    # Google 仅作兜底，并缩短超时避免单个坏解析器拖慢每次查询。
+    - name: Add Google DNS as fallback resolver
       run: |
-        echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
-        echo "nameserver 8.8.4.4" | sudo tee -a /etc/resolv.conf
+        cat /etc/resolv.conf
+        printf 'nameserver 8.8.8.8\nnameserver 8.8.4.4\noptions timeout:2 attempts:2\n' \
+          | sudo tee -a /etc/resolv.conf
 
     - name: Checkout repository
       uses: actions/checkout@v7

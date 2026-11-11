@@ -24,6 +24,9 @@ COOKIE_DATA_VARIANTS = [
 REQUEST_TIMEOUT = (10, 30)
 SYNCKEY_REPAIR_LIMIT = 3
 SYNCKEY_REPAIR_DELAY = 5
+# 网络抖动（DNS 解析失败、连接超时等）不应终止整轮阅读，重试后继续。
+NETWORK_RETRY_LIMIT = 5
+NETWORK_RETRY_DELAY = 15
 AUTH_ERROR_CODES = {-2012, -2013}
 
 
@@ -100,6 +103,7 @@ refresh_cookie(strict=False)
 index = 1
 lastTime = int(time.time()) - 30
 synckey_repair_attempts = 0
+network_failures = 0
 logging.info(f"一共需要阅读 {READ_NUM} 次。")
 
 while index <= READ_NUM:
@@ -123,10 +127,26 @@ while index <= READ_NUM:
             timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException as exc:
-        ERROR_CODE = f"阅读请求失败：{exc}"
-        logging.error(ERROR_CODE)
-        push(ERROR_CODE, PUSH_METHOD, is_success=False)
-        raise RuntimeError(ERROR_CODE) from exc
+        network_failures += 1
+        if network_failures > NETWORK_RETRY_LIMIT:
+            ERROR_CODE = f"阅读请求连续失败 {NETWORK_RETRY_LIMIT} 次，终止运行：{exc}"
+            logging.error(ERROR_CODE)
+            push(ERROR_CODE, PUSH_METHOD, is_success=False)
+            raise RuntimeError(ERROR_CODE) from exc
+
+        retry_delay = NETWORK_RETRY_DELAY * network_failures
+        logging.warning(
+            "阅读请求失败（%d/%d），%d 秒后重试：%s",
+            network_failures,
+            NETWORK_RETRY_LIMIT,
+            retry_delay,
+            exc,
+        )
+        time.sleep(retry_delay)
+        # 不推进 index，回到循环顶部用新的时间戳重新签名后重试。
+        continue
+
+    network_failures = 0
 
     try:
         resData = response.json()
