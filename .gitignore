@@ -10,3 +10,5 @@ logs/
 .env
 .env.local
 .env.*.local
+# 换 cookie 时临时存放原始 curl 的文件（含凭据）
+curl.txt
