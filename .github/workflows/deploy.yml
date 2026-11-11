@@ -31,15 +31,15 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v7
 
-    - name: Set up Python
-      uses: actions/setup-python@v7
-      with:
-        python-version: '3.10'
-
+    # 不使用 actions/setup-python：ubuntu-22.04 镜像的 tool cache 已不再预装
+    # Python 3.10，setup-python 每次都要从 GitHub release CDN 下载约 30MB，
+    # 该 CDN 抖动时会以 504 直接打挂整个 job（见 run 42570423858）。
+    # 镜像自带的系统 python3 就是 3.10.x，直接用它，去掉这个网络依赖。
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install certifi==2024.8.30 charset-normalizer==3.4.0 idna==3.10 requests==2.32.3 urllib3==2.2.3
+        python3 -VV
+        python3 -m pip install --upgrade pip
+        python3 -m pip install certifi==2024.8.30 charset-normalizer==3.4.0 idna==3.10 requests==2.32.3 urllib3==2.2.3
 
     - name: Run deployment script
       env:
@@ -53,7 +53,7 @@ jobs:
         READ_NUM: ${{ vars.READ_NUM }}  # 使用 Repository Variables
 
       run: |
-        python main.py
+        python3 main.py
 
   keepalive-job:
     name: Keepalive Workflow
