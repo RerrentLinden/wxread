@@ -15,12 +15,13 @@ COPY main.py push.py config.py log_utils.py scheduler.py ./
 # 安装 Python 依赖
 RUN python -m pip install --no-cache-dir \
     'requests>=2.32.3' \
-    'urllib3>=2.2.3'
+    'urllib3>=2.2.3' \
+    'apscheduler>=3.10.4'
 
-# 创建 cron 任务（每天凌晨1点执行）
-RUN echo "0 1 * * * cd /app && /usr/local/bin/python3 main.py >> /app/logs/\$(date +\%Y-\%m-\%d).log 2>&1" > /etc/cron.d/wxread-cron
-RUN chmod 0644 /etc/cron.d/wxread-cron
-RUN crontab /etc/cron.d/wxread-cron
+# 不写 cron：python:3.10-slim 既没有 /etc/cron.d 也没有 cron 守护进程，
+# 这三行会让构建直接失败（cannot create /etc/cron.d/...: Directory nonexistent）。
+# 定时由 scheduler.py 用 APScheduler 自己完成，读 CRON_SCHEDULE 环境变量。
+# 日志走 stdout/stderr，用 docker logs 查看。
 
 # 启动命令
-CMD ["python", "scheduler.py"]
+CMD ["python", "-u", "scheduler.py"]
